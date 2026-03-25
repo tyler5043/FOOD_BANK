@@ -1,10 +1,3 @@
-<<<<<<< HEAD
 streamlit>=1.32.0
 pandas>=2.0.0
 plotly>=5.18.0
-=======
-fastapi
-uvicorn
-pandas
-plotly
->>>>>>> f2425c015b51d176286bedcc38a8533c347010eb
