@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CalFoodConnect</title>
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="nav-brand">
+    <span class="nav-icon">🥗</span>
+    <span>CalFoodConnect</span>
+  </div>
+  <ul class="nav-links">
+    <li onclick="showPage('home')"    class="active" id="nav-home">Home</li>
+    <li onclick="showPage('banks')"              id="nav-banks">Food Banks</li>
+    <li onclick="showPage('inventory')"          id="nav-inventory">Inventory</li>
+    <li onclick="showPage('checkin')"            id="nav-checkin">Check In</li>
+    <li onclick="showPage('network')"            id="nav-network">Network</li>
+    <li onclick="showPage('predictions')"        id="nav-predictions">Predictions</li>
+  </ul>
+  <div class="api-status" id="apiStatus">⬤ Connecting…</div>
+</nav>
+
+<!-- ═══════════════════ HOME ═══════════════════ -->
+<section id="home" class="page">
+  <div class="hero">
+    <div class="hero-content">
+      <h1>Connecting California<br>Food Banks</h1>
+      <p>Reducing waste. Ending hunger. Powered by community data.</p>
+    </div>
+    <div class="hero-art">🥗</div>
+  </div>
+
+  <div class="metrics" id="metricsGrid">
+    <div class="card skeleton" id="card-banks">
+      <div class="card-icon">🏪</div>
+      <h3>Total Banks</h3>
+      <p class="metric" id="banks">—</p>
+    </div>
+    <div class="card skeleton" id="card-expiring">
+      <div class="card-icon">⚠️</div>
+      <h3>Expiring Soon</h3>
+      <p class="metric" id="expiring">—</p>
+    </div>
+    <div class="card skeleton" id="card-quantity">
+      <div class="card-icon">📦</div>
+      <h3>Total Quantity</h3>
+      <p class="metric" id="quantity">—</p>
+    </div>
+    <div class="card skeleton" id="card-people">
+      <div class="card-icon">🤝</div>
+      <h3>People Served</h3>
+      <p class="metric" id="people">—</p>
+    </div>
+  </div>
+
+  <div class="section-header">
+    <h3>⚠️ Expiring This Week</h3>
+    <span class="badge" id="alertBadge">0 items</span>
+  </div>
+  <div class="table-wrap">
+    <table id="alerts">
+      <thead><tr><th>Food Bank</th><th>Item</th><th>Days Left</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ═══════════════════ BANKS ═══════════════════ -->
+<section id="banks" class="page hidden">
+  <div class="page-header">
+    <h2>Food Banks</h2>
+    <p>All registered partner organizations</p>
+  </div>
+  <div id="banksList" class="banks-grid"></div>
+</section>
+
+<!-- ═══════════════════ INVENTORY ═══════════════════ -->
+<section id="inventory" class="page hidden">
+  <div class="page-header">
+    <h2>Inventory Explorer</h2>
+    <input type="text" id="inventorySearch" placeholder="Filter by item or bank…" oninput="filterInventory()">
+  </div>
+  <div class="table-wrap">
+    <table id="inventoryTable">
+      <thead>
+        <tr>
+          <th>Food Bank</th><th>Item</th><th>Qty</th><th>Days Left</th><th>Status</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ═══════════════════ CHECK-IN ═══════════════════ -->
+<section id="checkin" class="page hidden">
+  <div class="page-header">
+    <h2>Family Check-In</h2>
+    <p>Record families visiting today</p>
+  </div>
+  <div class="form-card">
+    <div class="form-group">
+      <label>Food Bank</label>
+      <select id="bankSelect"></select>
+    </div>
+    <div class="form-group">
+      <label>Family Size</label>
+      <input type="number" id="familySize" min="1" max="12" value="2">
+    </div>
+    <button class="btn-primary" onclick="checkin()">✅ Check In Family</button>
+    <div class="checkin-stats">
+      <div class="stat-pill">
+        <span class="stat-label">Families Today</span>
+        <span class="stat-val" id="familyCount">0</span>
+      </div>
+      <div class="stat-pill">
+        <span class="stat-label">People Today</span>
+        <span class="stat-val" id="visitorCount">0</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ NETWORK ═══════════════════ -->
+<section id="network" class="page hidden">
+  <div class="page-header">
+    <h2>Network Search</h2>
+    <p>Find an item across all food banks</p>
+  </div>
+  <div class="search-bar">
+    <input type="text" id="itemSearch" placeholder="e.g. Rice, Beans, Canned Corn…">
+    <button class="btn-primary" onclick="searchItem()">Search</button>
+  </div>
+  <div class="table-wrap">
+    <table id="networkTable">
+      <thead><tr><th>Bank</th><th>Item</th><th>Quantity</th><th>Status</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ═══════════════════ PREDICTIONS ═══════════════════ -->
+<section id="predictions" class="page hidden">
+  <div class="page-header">
+    <h2>Predictions & Analytics</h2>
+    <p>Demand vs supply per food bank</p>
+  </div>
+  <div class="chart-card">
+    <div id="chart"></div>
+  </div>
+</section>
+
+<footer>
+  Made for California food banks · Powered by community data · 2026
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>
