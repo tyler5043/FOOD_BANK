@@ -9,14 +9,6 @@ import string
 import math
 from datetime import datetime, date
 
-# Common Plotly layout style
-cl = dict(
-    paper_bgcolor="white",
-    plot_bgcolor="white",
-    margin=dict(t=40, b=40, l=40, r=40),
-    font=dict(family="Space Grotesk", size=12, color="#0a1628")
-)
-
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="CalFoodConnect",
