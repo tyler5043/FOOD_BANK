@@ -2414,7 +2414,8 @@ elif page == "dashboard":
         fig1.add_trace(go.Bar(name="7-Day Demand",x=grp["bank_name"],y=grp["Demand"],
                               marker_color="#ff8c42",marker_line_width=0))
         fig1.update_layout(**cl, barmode="group", title=dict(text=T("supply_weekly"),font=dict(size=14)),
-                           legend=dict(orientation="h",y=-0.35),xaxis=dict(tickangle=-30))
+                           legend=dict(orientation="h",y=-0.35))
+        fig1.update_xaxes(tickangle=-30)
         st.plotly_chart(fig1, use_container_width=True)
 
     with cb:
@@ -2829,7 +2830,8 @@ elif page == "ai_insights":
                                  marker_color=bar_colors, marker_line_width=0, opacity=0.8))
         fig_bar.update_layout(**cl, barmode="group",
                               title=dict(text=f"Stock vs {fc_days}-Day Projected Demand",font=dict(size=13)),
-                              legend=dict(orientation="h",y=-0.35), xaxis=dict(tickangle=-30))
+                              legend=dict(orientation="h",y=-0.35))
+        fig_bar.update_xaxes(tickangle=-30)
         st.plotly_chart(fig_bar, use_container_width=True)
 
         # Item-level table
