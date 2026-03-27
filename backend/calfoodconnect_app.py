@@ -2600,9 +2600,9 @@ elif page == "ai_insights":
             "axis": {"range": [0, 100], "tickcolor": "#5a7090"},
             "bar": {"color": "#00e5c0"},
             "steps": [
-                {"range": [0, 40],  "color": "#ff4d6d22"},
-                {"range": [40, 70], "color": "#ff8c4222"},
-                {"range": [70, 100],"color": "#00e5c022"},
+                {"range": [0, 40],  "color": "rgba(255,77,109,0.13)"},
+                {"range": [40, 70], "color": "rgba(255,140,66,0.13)"},
+                {"range": [70, 100],"color": "rgba(0,229,192,0.13)"},
             ],
             "threshold": {"line": {"color": "#a78bfa", "width": 3}, "thickness": 0.8, "value": 85},
         },
