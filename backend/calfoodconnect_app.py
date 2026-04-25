@@ -8,6 +8,45 @@ import random
 import string
 import math
 from datetime import datetime, date
+import qrcode
+import io
+import base64
+def generate_qr_code(data: str, size: int = 200) -> str:
+    """Generate a QR code and return it as a base64 encoded string."""
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_H,
+        box_size=10,
+        border=2,
+    )
+    qr.add_data(data)
+    qr.make(fit=True)
+    
+    # Create the QR code image with custom colors
+    img = qr.make_image(fill_color="#00e5c0", back_color="#0f1623")
+    
+    # Convert to base64
+    buffer = io.BytesIO()
+    img.save(buffer, format='PNG')
+    buffer.seek(0)
+    img_base64 = base64.b64encode(buffer.getvalue()).decode()
+    
+    return img_base64
+def get_qr_code_html(code: str, bank: str, size: int = 180) -> str:
+    """Generate HTML for displaying a QR code."""
+    # Create QR data payload with verification info
+    qr_data = f"CALFOOD:{code}|{bank}|{today()}"
+    qr_base64 = generate_qr_code(qr_data, size)
+    
+    return f'''
+    <div style="text-align:center;padding:20px;background:#0a0e14;border-radius:16px;border:1px solid #243048;">
+        <img src="data:image/png;base64,{qr_base64}" 
+             style="width:{size}px;height:{size}px;border-radius:8px;"/>
+        <div style="margin-top:12px;font-size:.68rem;color:#5a7090;text-transform:uppercase;letter-spacing:.1em;">
+            Scan at check-in desk
+        </div>
+    </div>
+    '''
 
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -958,12 +997,22 @@ def register_user(bank, profile):
     regs = load_registrations()
     code = gen_code()
     family_size = max(int(profile.get("children",0))+int(profile.get("adults",0))+int(profile.get("seniors",0)),1)
+    
+    # Generate QR code data
+    qr_data = f"CALFOOD:{code}|{bank}|{today()}"
+    qr_base64 = generate_qr_code(qr_data)
+    
     regs[code] = {
-        "bank": bank, "family_size": family_size,
+        "bank": bank, 
+        "family_size": family_size,
         "name": profile.get("first_name","Anonymous"),
-        "date": today(), "status": "registered",
+        "date": today(), 
+        "status": "registered",
         "registered_at": datetime.now().strftime("%H:%M"),
-        "checked_in_at": None, "served_at": None,
+        "checked_in_at": None, 
+        "served_at": None,
+        "qr_code": qr_base64,  # Store the QR code
+        "qr_data": qr_data,    # Store the QR payload for verification
         **{k: profile.get(k) for k in ["consent","birth_year","client_id","first_name",
            "middle_name","last_name","phone","can_text","address","city","zip_code",
            "children","seniors","adults","race_ethnicity"]}
@@ -1883,6 +1932,12 @@ def chart_layout(dark):
 # ══════════════════════════════════════════════════════════════════════════════
 # ██████████ HOME PAGE ████████████████████████████████████████████████████████
 # ══════════════════════════════════════════════════════════════════════════════
+def new_func(buffer):
+    return buffer.getvalue()
+
+def new_func1(bank, code, get_downloadable_qr):
+    qr_bytes = get_downloadable_qr(code, bank)
+
 if page == "home":
 
     if not st.session_state.logged_in:
@@ -1942,16 +1997,41 @@ if page == "home":
 
         if st.session_state.registered_bank:
             bank = st.session_state.registered_bank
+            code = st.session_state.user_code
+            regs = load_registrations()
+            profile = regs.get(code, {})
+            
+            # Get QR code
+            qr_base64 = profile.get("qr_code")
+            if not qr_base64:
+                qr_data = f"CALFOOD:{code}|{bank}|{today()}"
+                qr_base64 = generate_qr_code(qr_data)
+            
             cls  = "ci-checkedin" if st.session_state.checked_in else "ci-registered"
             stxt = T("checked_in") if st.session_state.checked_in else T("registered")
+            
             st.markdown(f"""
             <div class="ci-state-box {cls}">
-              <div style="font-family:'Playfair Display',serif;font-weight:700;font-size:1.1rem;">{stxt}</div>
-              <div style="margin-top:6px;font-size:.88rem;color:#5a7090;">
-                {T('food_bank')}: <b style="color:#e2eaf5;">{bank}</b>
+              <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:center;">
+                <!-- QR Code -->
+                <div style="text-align:center;padding:16px;background:#0a0e14;border-radius:12px;border:1px solid #243048;">
+                  <img src="data:image/png;base64,{qr_base64}" 
+                       style="width:120px;height:120px;border-radius:6px;"/>
+                  <div style="margin-top:8px;font-size:.6rem;color:#5a7090;text-transform:uppercase;">
+                    Scan to check in
+                  </div>
+                </div>
+                
+                <!-- Details -->
+                <div style="flex:1;">
+                  <div style="font-family:'Playfair Display',serif;font-weight:700;font-size:1.1rem;">{stxt}</div>
+                  <div style="margin-top:6px;font-size:.88rem;color:#5a7090;">
+                    {T('food_bank')}: <b style="color:#e2eaf5;">{bank}</b>
+                  </div>
+                  <div class="code-box" style="margin-top:12px;">{code}</div>
+                  <div style="font-size:.7rem;color:#5a7090;margin-top:4px;">{T('show_code')}</div>
+                </div>
               </div>
-              <div class="code-box" style="margin-top:12px;">{st.session_state.user_code}</div>
-              <div style="font-size:.7rem;color:#5a7090;margin-top:4px;">{T('show_code')}</div>
             </div>
             """, unsafe_allow_html=True)
             st.markdown("")
@@ -1976,9 +2056,9 @@ if page == "home":
                         st.session_state.checked_in = False
                         st.warning(T("left_queue_msg")); st.rerun()
 
-        st.markdown("<hr class='lc-divider'>", unsafe_allow_html=True)
-        section_header(T("available_banks"))
-        for bank in BANKS:
+    st.markdown("<hr class='lc-divider'>", unsafe_allow_html=True)
+    section_header(T("available_banks"))
+    for bank in BANKS:
             left, cap, pct, color, badge = slots_bar_html(bank)
             items = df[df["bank_name"] == bank]
             cats  = " · ".join(items["item_name"].tolist()[:5])
@@ -2266,21 +2346,63 @@ elif page == "my_checkin":
         regs = load_registrations()
         profile = regs.get(code, {})
         full_name = " ".join(filter(None,[profile.get("first_name",""),profile.get("middle_name",""),profile.get("last_name","")])) or "—"
+        
+        # Get or generate QR code
+        qr_base64 = profile.get("qr_code")
+        if not qr_base64:
+            qr_data = f"CALFOOD:{code}|{bank}|{today()}"
+            qr_base64 = generate_qr_code(qr_data)
+            # Update the stored registration with QR code
+            regs[code]["qr_code"] = qr_base64
+            regs[code]["qr_data"] = qr_data
+            save_registrations(regs)
 
+        # Registration card with QR code
         st.markdown(f"""
         <div class="lc-card">
           <div style="font-family:'Playfair Display',serif;font-weight:800;font-size:1.2rem;margin-bottom:4px;">{T('your_registration')}</div>
           <div style="color:#5a7090;font-size:.83rem;margin-bottom:20px;">{T('show_code')}</div>
+          
           <div style="display:flex;gap:32px;flex-wrap:wrap;align-items:flex-start;">
-            <div><div style="font-size:.62rem;text-transform:uppercase;letter-spacing:.1em;color:#5a7090;">{T('name')}</div><div style="font-weight:700;margin-top:3px;">{full_name}</div></div>
-            <div><div style="font-size:.62rem;text-transform:uppercase;letter-spacing:.1em;color:#5a7090;">{T('food_bank')}</div><div style="font-weight:700;margin-top:3px;">{bank}</div></div>
-            <div><div style="font-size:.62rem;text-transform:uppercase;letter-spacing:.1em;color:#5a7090;">{T('confirmation_code')}</div><div class="code-box">{code}</div></div>
-            <div><div style="font-size:.62rem;text-transform:uppercase;letter-spacing:.1em;color:#5a7090;">{T('household')}</div><div style="font-weight:700;margin-top:3px;">{fam} {T('people')}</div></div>
-            <div><div style="font-size:.62rem;text-transform:uppercase;letter-spacing:.1em;color:#5a7090;">{T('your_status')}</div>
-              <div style="font-weight:700;margin-top:3px;color:#00e5c0;">{'✅ ' + T('checked_in_here') if st.session_state.checked_in else '📋 ' + T('not_arrived')}</div>
+            <!-- Left side: Details -->
+            <div style="flex:1;min-width:280px;">
+              <div style="margin-bottom:16px;">
+                <div style="font-size:.62rem;text-transform:uppercase;letter-spacing:.1em;color:#5a7090;">{T('name')}</div>
+                <div style="font-weight:700;margin-top:3px;">{full_name}</div>
+              </div>
+              <div style="margin-bottom:16px;">
+                <div style="font-size:.62rem;text-transform:uppercase;letter-spacing:.1em;color:#5a7090;">{T('food_bank')}</div>
+                <div style="font-weight:700;margin-top:3px;">{bank}</div>
+              </div>
+              <div style="margin-bottom:16px;">
+                <div style="font-size:.62rem;text-transform:uppercase;letter-spacing:.1em;color:#5a7090;">{T('confirmation_code')}</div>
+                <div class="code-box">{code}</div>
+              </div>
+              <div style="display:flex;gap:24px;">
+                <div>
+                  <div style="font-size:.62rem;text-transform:uppercase;letter-spacing:.1em;color:#5a7090;">{T('household')}</div>
+                  <div style="font-weight:700;margin-top:3px;">{fam} {T('people')}</div>
+                </div>
+                <div>
+                  <div style="font-size:.62rem;text-transform:uppercase;letter-spacing:.1em;color:#5a7090;">{T('your_status')}</div>
+                  <div style="font-weight:700;margin-top:3px;color:#00e5c0;">{'✅ ' + T('checked_in_here') if st.session_state.checked_in else '📋 ' + T('not_arrived')}</div>
+                </div>
+              </div>
+            </div>
+            <!-- Right side: QR Code -->
+            <div style="text-align:center;padding:20px;background:#0a0e14;border-radius:16px;border:1px solid #243048;">
+              <img src="data:image/png;base64,{qr_base64}" style="width:160px;height:160px;border-radius:8px;">
+              <div style="margin-top:12px;font-size:.68rem;color:#5a7090;text-transform:uppercase;letter-spacing:.1em;">
+                Scan at check-in desk
+              </div>
+              <div style="margin-top:6px;font-family:'DM Mono',monospace;font-size:.72rem;color:#00e5c0;">
+                {code}
+              </div>
             </div>
           </div>
-        </div>""", unsafe_allow_html=True)
+        </div>
+        """, unsafe_allow_html=True)
+
 
         section_header(T("your_actions"))
         col1, col2 = st.columns(2)
@@ -2342,6 +2464,40 @@ elif page == "my_checkin":
               <span style="font-weight:500;">{row['item_name']}</span>
               <span><span class="pill {pcls}" style="margin-right:8px;">{row['supply_status']}</span>
               <span style="font-size:.72rem;color:#5a7090;">{av}</span></span></div>""", unsafe_allow_html=True)
+        
+        def get_downloadable_qr(code: str, bank: str) -> bytes:
+            """Generate a high-resolution QR code for download."""
+        qr_data = f"CALFOOD:{code}|{bank}|{today()}"
+    
+        qr = qrcode.QRCode(
+            version=2,
+            error_correction=qrcode.constants.ERROR_CORRECT_H,
+            box_size=20,
+            border=3,
+        )
+        qr.add_data(qr_data)
+        qr.make(fit=True)
+    
+        img = qr.make_image(fill_color="#00e5c0", back_color="#0f1623")
+    
+        buffer = io.BytesIO()
+        img.save(buffer, format='PNG')
+        buffer.seek(0)
+        new_func(buffer)
+
+        
+        # Download QR Code button
+        new_func1(bank, code, get_downloadable_qr)
+        st.download_button(
+            label="📱 Download QR Code",
+            #data=qr_bytes,
+            data=qr_data,
+            file_name=f"calfood_qr_{code}.png",
+            mime="image/png",
+            use_container_width=True
+        )
+
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # ██████████ DASHBOARD ████████████████████████████████████████████████████████
@@ -2489,6 +2645,79 @@ elif page == "manage":
 
     with tab1:
         st.markdown(f"#### {T('mark_served_label')}")
+        
+        # QR Code Scanner / Manual Entry
+        with st.expander("🔍 Quick Check-In via Code", expanded=False):
+            qr_input = st.text_input(
+                "Enter confirmation code or scan QR",
+                placeholder="#XXXXX or scan QR code",
+                key="qr_scanner_input"
+            )
+            
+            if qr_input:
+                # Parse QR data if it's in QR format
+                if qr_input.startswith("CALFOOD:"):
+                    parts = qr_input.replace("CALFOOD:", "").split("|")
+                    if len(parts) >= 2:
+                        scan_code = parts[0]
+                        scan_bank = parts[1]
+                    else:
+                        scan_code = qr_input
+                        scan_bank = None
+                else:
+                    scan_code = qr_input.strip().upper()
+                    if not scan_code.startswith("#"):
+                        scan_code = "#" + scan_code
+                    scan_bank = None
+                
+                regs = load_registrations()
+                if scan_code in regs:
+                    reg = regs[scan_code]
+                    if reg.get("date") == today():
+                        status = reg["status"]
+                        
+                        col_info, col_action = st.columns([2,1])
+                        with col_info:
+                            st.markdown(f"""
+                            <div style="padding:16px;background:#0f1623;border-radius:12px;border:1px solid #243048;">
+                                <div style="font-weight:700;font-size:1.1rem;">{reg.get('first_name','')} {reg.get('last_name','')}</div>
+                                <div style="font-size:.82rem;color:#5a7090;margin-top:4px;">
+                                    📍 {reg.get('bank','')} · 👥 {reg.get('family_size',1)} people
+                                </div>
+                                <div style="margin-top:8px;">
+                                    <span class="pill {'pill-ci' if status == 'checked_in' else 'pill-reg' if status == 'registered' else 'pill-ok' if status == 'served' else 'pill-crit'}">
+                                        {status.upper()}
+                                    </span>
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                        
+                        with col_action:
+                            if status == "registered":
+                                if st.button("✅ Check In", key="qr_checkin", use_container_width=True):
+                                    checkin_user(scan_code)
+                                    st.success(f"{scan_code} checked in!")
+                                    st.rerun()
+                            elif status == "checked_in":
+                                if st.button("🤝 Mark Served", key="qr_served", use_container_width=True):
+                                    mark_served(scan_code)
+                                    st.success(f"{scan_code} marked as served!")
+                                    st.rerun()
+                            elif status == "served":
+                                st.info("Already served ✓")
+                            else:
+                                st.warning(f"Status: {status}")
+                    else:
+                        st.error("This registration is from a different day.")
+                else:
+                    st.error(f"Code {scan_code} not found.")
+        
+        st.markdown("---")
+        
+        # Rest of the existing tab1 code continues here...
+        sel_bank = st.selectbox(T("food_bank"), BANKS, key="mgmt_bank")
+        # ... (keep the rest of the existing code)
+
         sel_bank = st.selectbox(T("food_bank"), BANKS, key="mgmt_bank")
         regs = load_registrations()
         t    = today()
